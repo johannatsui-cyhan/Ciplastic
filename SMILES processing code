@@ -1,0 +1,51 @@
+import pandas as pd
+from rdkit import Chem
+
+def canonicalize_smiles(smiles: str) -> str:
+    """
+    Canonicalize the SMILES string using RDKit. This includes:
+    - Generating the canonical SMILES.
+    - Removing explicit hydrogen atoms.
+    - Standardizing ring structures.
+    :param smiles: The input SMILES string.
+    :return: The canonicalized SMILES string.
+    """
+    mol = Chem.MolFromSmiles(smiles)
+    if mol:
+        # Generate the canonical SMILES (standardized SMILES representation)
+        canonical_smiles = Chem.MolToSmiles(mol, isomericSmiles=False)
+        return canonical_smiles
+    else:
+        return None  # Return None if the SMILES is invalid.
+
+def process_smiles_in_csv(file_path: str, smiles_column: str) -> pd.DataFrame:
+    """
+    Read the CSV file containing the SMILES column and convert each SMILES to its canonicalized form.
+    :param file_path: The path to the CSV file.
+    :param smiles_column: The column name that contains the SMILES strings.
+    :return: A DataFrame containing the original and canonicalized SMILES.
+    """
+    # Read the CSV file
+    df = pd.read_csv(file_path)
+    
+    # Ensure the SMILES column exists
+    if smiles_column not in df.columns:
+        raise ValueError(f"Column '{smiles_column}' not found in the CSV file.")
+    
+    # Convert each SMILES string to its canonicalized SMILES
+    df['canonicalized_smiles'] = df[smiles_column].apply(canonicalize_smiles)
+    
+    return df
+
+# Example: Read the CSV file and process the SMILES
+file_path = 'input.csv'  
+smiles_column = 'SMILES'      
+
+# Process the file
+processed_df = process_smiles_in_csv(file_path, smiles_column)
+
+# Print the result
+print(processed_df[['SMILES', 'canonicalized_smiles']])
+
+# If you want to save the processed data, you can save it to a new CSV file
+processed_df.to_csv('output.csv', index=False)
