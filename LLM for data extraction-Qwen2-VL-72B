@@ -1,0 +1,93 @@
+from transformers import Qwen2VLForConditionalGeneration, AutoProcessor
+from qwen_vl_utils import process_vision_info
+import os
+from glob import glob
+from tqdm import tqdm
+import argparse
+
+parser = argparse.ArgumentParser()
+parser.add_argument("--device_id", type=int, default=0)
+parser.add_argument("--data_path", type=str, default="/ssd0/data/file_name")
+args = parser.parse_args()
+
+model_path = "/ssd0/Qwen/Qwen2-VL-72B-Instruct/"
+
+model = Qwen2VLForConditionalGeneration.from_pretrained(
+    model_path, torch_dtype="auto", device_map="auto"
+)
+
+processor = AutoProcessor.from_pretrained(model_path)
+
+pdf_out_path = args.data_path
+pdfs = sorted(os.listdir(pdf_out_path))
+split_len = len(pdfs)
+selected_pdfs = pdfs[args.device_id * split_len: (args.device_id + 1) * split_len]
+
+output_folder = os.path.join("outputs", os.path.basename(pdf_out_path))
+os.makedirs(output_folder, exist_ok=True)
+
+error_imgs = []
+
+for pdf in tqdm(selected_pdfs):
+    pdf_path = os.path.join(pdf_out_path, pdf)
+    imgs = glob(os.path.join(pdf_path, "*.jpg"))
+
+    out_txt = os.path.join(output_folder, pdf + ".txt")
+    if os.path.exists(out_txt):
+        continue
+
+    with open(out_txt, "w", encoding="utf-8") as f:
+        for img in imgs:
+            try:
+                img_id = os.path.basename(img)
+                f.write(f"####### Image {img_id} #######\n")
+
+              prompts = "Is the content in this image with the title "+img_id+" a chart description about chemicals? If so, please extract the data related to chemicals from the given image and return it in the specified JSON format.\
+		- Chemical name: The specific name of the chemical. \
+		- Information type: It should be one of the following: "production volume", "production capacity", "production value", "market size", "consumption volume", "import volume", "import value", "export volume", or "export value". 
+		- Numerical value: specific value.\
+		- Unit: the unit corresponding to the numerical value.\
+		- Year: the year corresponding to the numerical value.\
+		- Month: the month corresponding to the numerical value.\
+		- Location: the specific location corresponding to the numerical value.\
+		The output format should be as follows: 
+		{'Chemical name’: 'XXX'or 'No information’, 'Information type’: 'XXX'or 'No information’, 'Numerical value’: 'XXX'or 'No information’, 'Unit’: 'XXX'or 'No information’, 'Year’: 'XXX'or 'No information’, 'Month’: 'XXX'or 'No information’, 'Location’: 'XXX'or 'No information’}, critical notes: do not output any additional content.
+
+
+                messages = [
+                    {
+                        "role": "user",
+                        "content": [
+                            {"type": "image", "image": img},
+                            {"type": "text", "text": prompts},
+                        ],
+                    }
+                ]
+
+                text = processor.apply_chat_template(
+                    messages, tokenize=False, add_generation_prompt=True
+                )
+                image_inputs, video_inputs = process_vision_info(messages)
+                inputs = processor(
+                    text=[text],
+                    images=image_inputs,
+                    videos=video_inputs,
+                    padding=True,
+                    return_tensors="pt",
+                )
+                inputs = inputs.to(model.device)
+
+                generated_ids = model.generate(**inputs, max_new_tokens=8096)
+                generated_ids_trimmed = [
+                    out_ids[len(in_ids):] for in_ids, out_ids in zip(inputs.input_ids, generated_ids)
+                ]
+                output_text = processor.batch_decode(
+                    generated_ids_trimmed, skip_special_tokens=True, clean_up_tokenization_spaces=False
+                )
+
+                f.write(output_text[0] + "\n")
+            except:
+                error_imgs.append(img)
+                print(f"### ERROR IMAGE: {img}")
+
+print("### Total error images: ", error_imgs)
