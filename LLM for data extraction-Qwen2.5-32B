@@ -17,17 +17,17 @@ args = parser.parse_args()
 # =========================
 # Path configuration
 # =========================
-pdf_path = "/ssd0/data/literature file name"
+pdf_path = "/ssd0/data/file_name"
 
 output_dir = "outputs"
-text_and_image_dir = os.path.join(
-    output_dir, "text_and_image_literature file name"
+literature_text_dir = os.path.join(
+    output_dir, "literature_text_file_name"
 )
 extracted_text_path = os.path.join(
     output_dir, "literature file name"
 )
 
-os.makedirs(text_and_image_dir, exist_ok=True)
+os.makedirs(literature_text_dir, exist_ok=True)
 os.makedirs(extracted_text_path, exist_ok=True)
 
 
@@ -44,7 +44,7 @@ if process_pdf:
     for pdf_file in tqdm(pdf_files):
         pdf_file_path = os.path.join(pdf_path, pdf_file)
         pdf_name = os.path.splitext(pdf_file)[0]
-        pdf_output_dir = os.path.join(text_and_image_dir, pdf_name)
+        pdf_output_dir = os.path.join(literature_text_dir, pdf_name)
         os.makedirs(pdf_output_dir, exist_ok=True)
 
         try:
@@ -84,7 +84,7 @@ tokenizer = AutoTokenizer.from_pretrained(model_name)
 # =========================
 print("Processing text files...")
 
-all_pdf_dirs = sorted(os.listdir(text_and_image_dir))
+all_pdf_dirs = sorted(os.listdir(literature_text_dir))
 num_pdfs = len(all_pdf_dirs)
 split_len = num_pdfs // num_gpus
 
@@ -95,7 +95,7 @@ selected_pdfs = all_pdf_dirs[start_idx:end_idx]
 print(f"Processing PDF indices from {start_idx} to {end_idx}")
 
 for pdf_dir in tqdm(selected_pdfs):
-    pdf_dir_path = os.path.join(text_and_image_dir, pdf_dir)
+    pdf_dir_path = os.path.join(literature_text_dir, pdf_dir)
     page_files = sorted(
         [f for f in os.listdir(pdf_dir_path) if f.endswith(".txt")]
     )
