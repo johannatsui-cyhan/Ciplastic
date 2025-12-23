@@ -18,21 +18,21 @@ model = Qwen2VLForConditionalGeneration.from_pretrained(
 
 processor = AutoProcessor.from_pretrained(model_path)
 
-pdf_out_path = args.data_path
-pdfs = sorted(os.listdir(pdf_out_path))
-split_len = len(pdfs)
-selected_pdfs = pdfs[args.device_id * split_len: (args.device_id + 1) * split_len]
+data_root = args.data_path
+doc_dir_names = sorted(os.listdir(data_root))
+total_docs = len(doc_dir_names)
+selected_doc_dir_names = doc_dir_names[args.device_id * total_docs: (args.device_id + 1) * total_docs]
 
 output_folder = os.path.join("outputs", os.path.basename(pdf_out_path))
 os.makedirs(output_folder, exist_ok=True)
 
 error_imgs = []
 
-for pdf in tqdm(selected_pdfs):
-    pdf_path = os.path.join(pdf_out_path, pdf)
+for doc_dir_name in tqdm(selected_doc_dir_names):
+     doc_dir_path = os.path.join(data_root, doc_dir_name)
     imgs = glob(os.path.join(pdf_path, "*.jpg"))
 
-    out_txt = os.path.join(output_folder, pdf + ".txt")
+    out_txt = os.path.join(output_folder, doc_dir_name + ".txt")
     if os.path.exists(out_txt):
         continue
 
